@@ -1,5 +1,9 @@
 # clj.native-image
 
+Fork of clj.native-image that we use at Lambda Island. Has a few more command line options and uses `clojure.tools.cli` for more predictable command line parsing.
+
+It is not 100% compatible with the upstream version, since it requires separating the native-image arguments from the rest with `--`, see the example below.
+
 Build [GraalVM](https://www.graalvm.org) native images using [Clojure Deps and CLI tools](https://clojure.org/guides/deps_and_cli).
 
 This should be useful for creating lightweight, native CLI executables using Clojure and `deps.edn`.
@@ -7,7 +11,6 @@ See [clj.native-cli](https://github.com/taylorwood/clj.native-cli) for a starter
 
 _This project depends on tools.deps.alpha and should be considered alpha itself._
 
-This forks adds some extra command line options. It is not compatible with the upstream version, since it requires separating the native-image arguments from the rest with `--`.
 
 ## Prerequisites
 
