@@ -1,5 +1,6 @@
 (ns clj.native-image
   "Builds GraalVM native images from deps.edn projects."
+  (:gen-class)
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.tools.cli :as cli]
@@ -74,9 +75,9 @@
 
 (defn build [main-ns graal-args {:keys [precompile native-image-path] :as opts}]
   (let [deps-map (merged-deps)
-        namespaces (concat
-                    (remove empty? (str/split (or precompile "") #","))
-                    [main-ns])
+        namespaces (map symbol (concat
+                                (remove empty? (str/split (or precompile "") #","))
+                                [main-ns]))
         namespaces (concat namespaces
                            (->> (:paths deps-map)
                                 (mapcat (comp find-namespaces-in-dir io/file))
@@ -84,7 +85,7 @@
     (prep-compile-path)
     (doseq [ns (distinct namespaces)]
       (println "Compiling" ns)
-      (compile (symbol ns)))
+      (compile ns))
 
     (System/exit
      (exec-native-image

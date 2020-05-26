@@ -5,3 +5,5 @@ pom.xml.asc
 *.lein-*
 project.clj
 *.iml
+.cpcache
+.nrepl-port
