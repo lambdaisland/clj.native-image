@@ -7,6 +7,8 @@ See [clj.native-cli](https://github.com/taylorwood/clj.native-cli) for a starter
 
 _This project depends on tools.deps.alpha and should be considered alpha itself._
 
+This forks adds some extra command line options. It is not compatible with the upstream version, since it requires separating the native-image arguments from the rest with `--`.
+
 ## Prerequisites
 
 - [Clojure CLI tools](https://clojure.org/guides/getting_started#_clojure_installer_and_cli_tools)
@@ -36,7 +38,9 @@ Assuming a project structure like this:
 In your `deps.edn` specify an alias with a dependency on `clj.native-image`:
 ```clojure
 {:aliases {:native-image
-           {:main-opts ["-m clj.native-image core"
+           {:main-opts ["-m clj.native-image my.main.ns"
+                        "--"
+                        "--no-fallback"
                         "--initialize-at-build-time"
                         ;; optional native image name override
                         "-H:Name=core"]
@@ -51,6 +55,7 @@ Where `core.clj` is a class with `-main` entrypoint, for example:
 ```clojure
 (ns core
   (:gen-class))
+
 (defn -main [& args]
   (println "Hello, World!"))
 ```
@@ -81,6 +86,11 @@ Hello, World!
 ```
 
 See [this Gist](https://gist.github.com/taylorwood/23d370f70b8b09dbf6d31cd4f27d31ff) for another example.
+
+Other options
+
+- `--echo` print out the `native-image` invocation
+- `--precompile` compile certain namespaces first (useful for `gen-class`)
 
 ### Example Projects
 
