@@ -1,7 +1,8 @@
 (ns clj.native-image
   "Builds GraalVM native images from deps.edn projects."
   (:require [clojure.java.io :as io]
-            [clojure.string :as cs]
+            [clojure.string :as str]
+            [clojure.tools.cli :as cli]
             [clojure.tools.deps.alpha.reader :as deps.reader]
             [clojure.tools.namespace.find :refer [find-namespaces-in-dir]])
   (:import (java.io BufferedReader File)))
@@ -10,12 +11,12 @@
   "Returns the current tools.deps classpath string, minus clj.native-image and plus *compile-path*."
   []
   (as-> (System/getProperty "java.class.path") $
-        (cs/split $ (re-pattern (str File/pathSeparatorChar)))
-        (remove #(cs/includes? "clj.native-image" %) $) ;; exclude ourselves
+        (str/split $ (re-pattern (str File/pathSeparatorChar)))
+        (remove #(str/includes? "clj.native-image" %) $) ;; exclude ourselves
         (cons *compile-path* $) ;; prepend compile path for classes
-        (cs/join File/pathSeparatorChar $)))
+        (str/join File/pathSeparatorChar $)))
 
-(def windows? (cs/starts-with? (System/getProperty "os.name") "Windows"))
+(def windows? (str/starts-with? (System/getProperty "os.name") "Windows"))
 
 (defn merged-deps
   "Merges install, user, local deps.edn maps left-to-right."
@@ -40,14 +41,16 @@
 (defn exec-native-image
   "Executes native-image (bin) with opts, specifying a classpath,
    main/entrypoint class, and destination path."
-  [bin opts cp main]
+  [opts cp main {:keys [native-image-path echo]}]
   (let [cli-args (cond-> []
                    (seq opts)     (into opts)
                    cp             (into ["-cp" cp])
                    main           (conj main)
                    ;; apparently native-image --no-server isn't currently supported on Windows
                    (not windows?) (conj "--no-server"))]
-    (apply sh bin cli-args)))
+    (when echo
+      (println (str native-image-path (str/join " " (map #(if (str/includes? % " ") (str "'" % "'") %) cli-args)))))
+    (apply sh native-image-path cli-args)))
 
 (defn prep-compile-path []
   (let [compile-path (io/file *compile-path*)]
@@ -58,7 +61,7 @@
 (defn native-image-bin-path []
   (let [graal-paths [(str (System/getenv "GRAALVM_HOME") "/bin")
                      (System/getenv "GRAALVM_HOME")]
-        paths (lazy-cat graal-paths (cs/split (System/getenv "PATH") (re-pattern (File/pathSeparator))))
+        paths (lazy-cat graal-paths (str/split (System/getenv "PATH") (re-pattern (File/pathSeparator))))
         filename (cond-> "native-image" windows? (str ".cmd"))]
     (first
      (for [path (distinct paths)
@@ -67,41 +70,69 @@
        (.getAbsolutePath file)))))
 
 (defn- munge-class-name [class-name]
-  (cs/replace class-name "-" "_"))
+  (str/replace class-name "-" "_"))
 
-(defn build [main-ns opts]
-  (let [[nat-img-path & nat-img-opts]
-        (if (some-> (first opts) (io/file) (.exists)) ;; check first arg is file path
-          opts
-          (cons (native-image-bin-path) opts))]
-    (when-not nat-img-path
-      (binding [*out* *err*]
-        (println "Could not find GraalVM's native-image!")
-        (println "Please make sure that the environment variable $GRAALVM_HOME is set")
-        (println "The native-image tool must also be installed ($GRAALVM_HOME/bin/gu install native-image)")
-        (println "If you do not wish to set the GRAALVM_HOME environment variable,")
-        (println "you may pass the path to native-image as the second argument to clj.native-image"))
-      (System/exit 1))
-    (when-not (string? main-ns)
-      (binding [*out* *err*] (println "Main namespace required e.g. \"script\" if main file is ./script.clj"))
-      (System/exit 1))
+(defn build [main-ns graal-args {:keys [precompile native-image-path] :as opts}]
+  (let [deps-map (merged-deps)
+        namespaces (concat
+                    (remove empty? (str/split (or precompile "") #","))
+                    [main-ns])
+        namespaces (concat namespaces
+                           (->> (:paths deps-map)
+                                (mapcat (comp find-namespaces-in-dir io/file))
+                                (remove (set namespaces))))]
+    (prep-compile-path)
+    (doseq [ns (distinct namespaces)]
+      (println "Compiling" ns)
+      (compile (symbol ns)))
 
-    (let [deps-map (merged-deps)
-          namespaces (mapcat (comp find-namespaces-in-dir io/file) (:paths deps-map))]
-      (prep-compile-path)
-      (doseq [ns (distinct (cons main-ns namespaces))]
-        (println "Compiling" ns)
-        (compile (symbol ns)))
+    (System/exit
+     (exec-native-image
+      graal-args
+      (native-image-classpath)
+      (munge-class-name main-ns)
+      opts))))
 
-      (System/exit
-       (exec-native-image
-        nat-img-path
-        nat-img-opts
-        (native-image-classpath)
-        (munge-class-name main-ns))))))
+(defn- accumulate [m k v]
+  (update m k (fnil conj []) v))
 
-(defn -main [main-ns & args]
-  (try
-    (build main-ns args)
-    (finally
-      (shutdown-agents))))
+(def cli-opts
+  [["-n"  "--native-image-path"      "Use a specific native-image binary."
+    :default (native-image-bin-path)]
+   ["-e" "--echo"                   "Print out native-image invocation"]
+   ["-p"  "--precompile NAMESPACES" "Namespaces to compile before the main ns, e.g. because they contain gen-class directives, comma separated."]
+   ["-h" "--help"                   "Output this help information."]])
+
+(defn print-help [summary]
+  (println "Usage: clojure -m clj.native-image [MAIN_NS] [OPTS] -- [GRAAL_ARGS]")
+  (println)
+  (println summary)
+  (println)
+  (println "If no --native-image-path is provided then it is search for in $GRAALVM_HOME/bin, $GRAALVM_HOME, and $PATH.")
+  (println)
+  (println "Any arguments after -- are passed on verbatim to native-image."))
+
+(defn -main [& args]
+  (let [[our-args graal-args] (split-with (complement #{"--"}) args)
+        {:keys [options arguments summary]} (cli/parse-opts our-args cli-opts)]
+    (try
+      (cond
+        (:help options)
+        (print-help summary)
+
+        (not (:native-image-path options))
+        (binding [*out* *err*]
+          (println "Could not find GraalVM's native-image! Please make sure that the environment variable $GRAALVM_HOME is set. The native-image tool must also be installed ($GRAALVM_HOME/bin/gu install native-image).")
+          (println "If you do not wish to set the GRAALVM_HOME environment variable, you can use the --native-image-path flag to set the binary explicity. Try --help for options.")
+          (System/exit 1))
+
+        (not (seq arguments))
+        (binding [*out* *err*]
+          (println "Main namespace required e.g. \"script\" if main file is ./script.clj")
+          (print-help summary)
+          (System/exit 1))
+
+        :else
+        (build (first arguments) (next graal-args) options))
+      (finally
+        (shutdown-agents)))))
