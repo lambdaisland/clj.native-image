@@ -50,7 +50,7 @@
                    ;; apparently native-image --no-server isn't currently supported on Windows
                    (not windows?) (conj "--no-server"))]
     (when echo
-      (println (str native-image-path (str/join " " (map #(if (str/includes? % " ") (str "'" % "'") %) cli-args)))))
+      (println (str native-image-path " " (str/join " " (map #(if (str/includes? % " ") (str "'" % "'") %) cli-args)))))
     (apply sh native-image-path cli-args)))
 
 (defn prep-compile-path []
