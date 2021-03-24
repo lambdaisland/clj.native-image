@@ -41,7 +41,7 @@ Assuming a project structure like this:
 In your `deps.edn` specify an alias with a dependency on `clj.native-image`:
 ```clojure
 {:aliases {:native-image
-           {:main-opts ["-m clj.native-image my.main.ns"
+           {:main-opts ["-m" "clj.native-image" "core"
                         "--"
                         "--no-fallback"
                         "--initialize-at-build-time"
