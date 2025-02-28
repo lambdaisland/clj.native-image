@@ -1,28 +1,31 @@
 (ns clj.native-image
   "Builds GraalVM native images from deps.edn projects."
   (:gen-class)
-  (:require [clojure.java.io :as io]
-            [clojure.string :as str]
-            [clojure.tools.cli :as cli]
-            [clojure.tools.deps.alpha.reader :as deps.reader]
-            [clojure.tools.namespace.find :refer [find-namespaces-in-dir]])
-  (:import (java.io BufferedReader File)))
+  (:require
+   [clojure.java.io :as io]
+   [clojure.string :as str]
+   [clojure.tools.cli :as cli]
+   [clojure.tools.deps.alpha :as deps]
+   [clojure.tools.namespace.find :refer [find-namespaces-in-dir]])
+  (:import
+   (java.io BufferedReader File)))
 
 (defn native-image-classpath
   "Returns the current tools.deps classpath string, minus clj.native-image and plus *compile-path*."
   []
   (as-> (System/getProperty "java.class.path") $
-        (str/split $ (re-pattern (str File/pathSeparatorChar)))
-        (remove #(str/includes? "clj.native-image" %) $) ;; exclude ourselves
-        (cons *compile-path* $) ;; prepend compile path for classes
-        (str/join File/pathSeparatorChar $)))
+    (str/split $ (re-pattern (str File/pathSeparatorChar)))
+    (remove #(str/includes? "clj.native-image" %) $) ;; exclude ourselves
+    (cons *compile-path* $) ;; prepend compile path for classes
+    (str/join File/pathSeparatorChar $)))
 
 (def windows? (str/starts-with? (System/getProperty "os.name") "Windows"))
 
 (defn merged-deps
   "Merges install, user, local deps.edn maps left-to-right."
   []
-  (deps.reader/read-deps (deps.reader/default-deps)))
+  (let [{:keys [install-edn user-edn project-edn]} (deps/find-edn-maps)]
+    (deps/merge-edns [install-edn user-edn project-edn])))
 
 (defn sh
   "Launches a process with optional args, returning exit code.
