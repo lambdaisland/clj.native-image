@@ -35,13 +35,13 @@ Tested with GraalVM CE 21 and 25.
 To use the latest release, add the following to your `deps.edn` ([Clojure CLI](https://clojure.org/guides/deps_and_cli))
 
 ```clj
-com.lambdaisland/native-image {:mvn/version "0.0.6"}
+com.lambdaisland/native-image {:mvn/version "0.2.56"}
 ```
 
 or add the following to your `project.clj` ([Leiningen](https://leiningen.org/))
 
 ```clj
-[com.lambdaisland/native-image "0.0.6"]
+[com.lambdaisland/native-image "0.2.56"]
 ```
 <!-- /installation -->
 
