@@ -1,5 +1,5 @@
 {:paths ["src"]
- :deps  {org.clojure/clojure          {:mvn/version "1.12.0"}
-         org.clojure/tools.deps.alpha {:mvn/version "0.15.1254"}
-         org.clojure/tools.namespace  {:mvn/version "1.5.0"}
-         org.clojure/tools.cli        {:mvn/version "1.1.230"}}}
+ :deps  {org.clojure/clojure         {:mvn/version "1.12.6"}
+         org.clojure/tools.deps      {:mvn/version "0.31.1646"}
+         org.clojure/tools.namespace {:mvn/version "1.5.1"}
+         com.lambdaisland/cli        {:mvn/version "1.31.133"}}}

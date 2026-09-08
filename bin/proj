@@ -1,0 +1,17 @@
+#!/usr/bin/env bb
+
+(ns proj
+  (:require
+   [lioss.main :as lioss]))
+
+(lioss/main
+ {:license        :mit
+  :inception-year 2018
+  :description    "Run GraalVM native-image on Clojure projects"
+  :group-id       "com.lambdaisland"
+  :name           "native-image"
+  :authors        ["Taylor Wood", "Arne Brasseur"]})
+
+;; Local Variables:
+;; mode:clojure
+;; End:

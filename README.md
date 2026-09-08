@@ -1,128 +1,113 @@
-# clj.native-image
+# lambdaisland/native-image
 
-Fork of clj.native-image that we use at Lambda Island. Has a few more command line options and uses `clojure.tools.cli` for more predictable command line parsing.
+<!-- badges -->
+<p align=center>
+[![cljdoc badge](https://cljdoc.org/badge/com.lambdaisland/native-image)](https://cljdoc.org/d/com.lambdaisland/native-image) [![Clojars Project](https://img.shields.io/clojars/v/com.lambdaisland/native-image.svg)](https://clojars.org/com.lambdaisland/native-image) ![](https://img.shields.io/clojars/dt/com.lambdaisland%2Fnative-image?style=flat-square)
+</p>
+<!-- /badges -->
 
-It is not 100% compatible with the upstream version, since it requires separating the native-image arguments from the rest with `--`, see the example below.
+Modernised fork of
+[taylorwood/clj.native-image](https://github.com/taylorwood/clj.native-image),
+with many thanks to the original author.
 
 Build [GraalVM](https://www.graalvm.org) native images using [Clojure Deps and CLI tools](https://clojure.org/guides/deps_and_cli).
 
-This should be useful for creating lightweight, native CLI executables using Clojure and `deps.edn`.
-See [clj.native-cli](https://github.com/taylorwood/clj.native-cli) for a starter project template.
+Useful for creating lightweight, native CLI executables using Clojure and `deps.edn`.
 
-_This project depends on tools.deps.alpha and should be considered alpha itself._
-
+It's operation is fairly simple, it invokes Clojure's compiler to turn
+namespaces into Java class files, it then invokes the GraalVM `native-image`
+tool to create a single binary.
 
 ## Prerequisites
 
 - [Clojure CLI tools](https://clojure.org/guides/getting_started#_clojure_installer_and_cli_tools)
 - [GraalVM](https://www.graalvm.org/downloads/)
 
-  **NOTE:** As of GraalVM 19.0.0, `native-image` is no longer included by default:
-  > Native Image was extracted from the base GraalVM distribution. Currently it is available as an early adopter plugin. To install it, run: `gu install native-image`. After this additional step, the `native-image` executable will be in the `bin` directory, as for the previous releases.
+Recent enough GraalVM distributions have `native-image` directly under `bin/`.
+If either `PATH` or `JAVA_HOME` is set correctly then it'll be found
+automatically.
 
-  ```
-  ➜ $GRAALVM_HOME/bin/gu install native-image
-  Downloading: Component catalog from www.graalvm.org
-  Processing component archive: Native Image
-  Downloading: Component native-image: Native Image  from github.com
-  Installing new component: Native Image licence files (org.graalvm.native-image, version 19.0.0)
-  ```
+Tested with GraalVM CE 21 and 25.
+
+<!-- installation -->
+## Installation
+
+To use the latest release, add the following to your `deps.edn` ([Clojure CLI](https://clojure.org/guides/deps_and_cli))
+
+```clj
+com.lambdaisland/native-image {:mvn/version "0.0.6"}
+```
+
+or add the following to your `project.clj` ([Leiningen](https://leiningen.org/))
+
+```clj
+[com.lambdaisland/native-image "0.0.6"]
+```
+<!-- /installation -->
 
 ## Usage
 
-Assuming a project structure like this:
-```
-.
-├── deps.edn
-└── src
-    └── core.clj
-```
+The main namespace is `lambdaisland.native-image`, which has a single subcommand, `build`
 
-In your `deps.edn` specify an alias with a dependency on `clj.native-image`:
-```clojure
-{:aliases {:native-image
-           {:main-opts ["-m" "clj.native-image" "core"
-                        "--"
-                        "--no-fallback"
-                        "--initialize-at-build-time"
-                        ;; optional native image name override
-                        "-H:Name=core"]
-            :jvm-opts ["-Dclojure.compiler.direct-linking=true"]
-            :extra-deps
-            {clj.native-image/clj.native-image
-             {:git/url "https://github.com/taylorwood/clj.native-image.git"
-              :sha "7708e7fd4572459c81f6a6b8e44c96f41cdd92d4"}}}}}
+```
+$ clojure -M -m lambdaisland.native-image build --help
+NAME
+  clojure -M -m lambdaisland.native-image build  ——  Build a native image, with `main-ns` as entry point.
+
+SYNOPSIS
+  clojure -M -m lambdaisland.native-image build <main-ns> [-n | --native-image-path <path>] [-e | --echo]
+    [-p | --precompile <namespace>] [--compile-path <path>] [<args>...]
+
+FLAGS
+  -n, --native-image-path <path>   Use a specific native-image binary. (default "/home/arne/opt/graalvm-community-25.3.4.1+1.1/bin/native-image")
+  -e, --echo                       Print out native-image invocation
+  -p, --precompile <namespace>     Namespace to compile before the main ns, e.g. because they contain gen-class directives
+      --compile-path <path>        Clojure's compilation output path (default "target")
 ```
 
-Where `core.clj` is a class with `-main` entrypoint, for example:
-```clojure
-(ns core
-  (:gen-class))
+Pass it a namespace to use as its main entrypoint. It should have `(:gen-class)`
+and a `main` function. Additional flags after `--` are passed on directly to
+`native-image`.
 
-(defn -main [& args]
-  (println "Hello, World!"))
+For example, to build itself:
+
+```
+clojure -M -m lambdaisland.native-image build lambdaisland.native-image -- --initialize-at-build-time -march=native
 ```
 
-From your project directory, invoke `clojure` with the `native-image` alias, specifying the main namespace
-(`core` in example above):
-```
-➜ clojure -A:native-image
-Loading core
-Compiling core
-Building native image 'core' with classpath 'classes:src:etc.'
+<!-- opencollective -->
+## Lambda Island Open Source
 
-   classlist:   1,944.26 ms
-   8<----------------------
-     [total]:  38,970.37 ms
-```
-Note: Either `GRAALVM_HOME` environment variable must be set, or GraalVM's `native-image` path must be passed as an argument,
-and any [additional arguments](https://www.graalvm.org/docs/reference-manual/aot-compilation/#image-generation-options)
-will be passed to `native-image` e.g.:
-```
-➜ clojure -A:native-image --verbose
-```
+Thank you! native-image is made possible thanks to our generous backers. [Become a
+backer on OpenCollective](https://opencollective.com/lambda-island) so that we
+can continue to make native-image better.
 
-You can now execute the native image:
-```
-➜ ./core
-Hello, World!
-```
+<a href="https://opencollective.com/lambda-island">
+<img src="https://opencollective.com/lambda-island/organizations.svg?avatarHeight=46&width=800&button=false">
+<img src="https://opencollective.com/lambda-island/individuals.svg?avatarHeight=46&width=800&button=false">
+</a>
+<img align="left" src="https://github.com/lambdaisland/open-source/raw/master/artwork/lighthouse_readme.png">
 
-See [this Gist](https://gist.github.com/taylorwood/23d370f70b8b09dbf6d31cd4f27d31ff) for another example.
+&nbsp;
 
-Other options
+native-image is part of a growing collection of quality Clojure libraries created and maintained
+by the fine folks at [Gaiwan](https://gaiwan.co).
 
-- `--echo` print out the `native-image` invocation
-- `--precompile` compile certain namespaces first (useful for `gen-class`)
+Pay it forward by [becoming a backer on our OpenCollective](http://opencollective.com/lambda-island),
+so that we continue to enjoy a thriving Clojure ecosystem.
 
-### Example Projects
+You can find an overview of all our different projects at [lambdaisland/open-source](https://github.com/lambdaisland/open-source).
 
-There are example deps.edn projects in the [lein-native-image](https://github.com/taylorwood/lein-native-image) repo:
-- [jdnsmith](https://github.com/taylorwood/lein-native-image/blob/master/examples/http-api) - CLI JSON-to-EDN transformer
-- [http-api](https://github.com/taylorwood/lein-native-image/blob/master/examples/http-api) - simple HTTP API server
-- [clojurl](https://github.com/taylorwood/clojurl) - cURL-like tool using clojure.spec, HTTPS, hiccup
+&nbsp;
 
-## Caveats
+&nbsp;
+<!-- /opencollective -->
 
-The `--no-server` flag is passed to `native-image` by default, to avoid creating orphaned build servers.
 
-Also see [caveats](https://github.com/taylorwood/lein-native-image#caveats) section of lein-native-image.
-
-## References
-
-[GraalVM Native Image AOT Compilation](https://www.graalvm.org/docs/reference-manual/aot-compilation/)
-
-This project was inspired by [depstar](https://github.com/healthfinch/depstar).
-
-## Contributing
-
-You'll need Clojure CLI tooling and GraalVM installed to test locally.
-Just change the source of the `clj.native-image` dependency to a `:local/root` instead of `:git/url`.
-
-Issues, PRs, and suggestions are welcome!
-
+<!-- license -->
 ## License
 
-Copyright © 2018 Taylor Wood.
+Copyright &copy; 2018-2026 Taylor Wood, Arne Brasseur, and Contributors
 
-Distributed under the MIT License.
+Licensed under the term of the MIT License, see LICENSE.
+<!-- /license -->

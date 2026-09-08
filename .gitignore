@@ -7,3 +7,4 @@ project.clj
 *.iml
 .cpcache
 .nrepl-port
+lambdaisland.native_image
