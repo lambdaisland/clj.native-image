@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.lambdaisland</groupId>
   <artifactId>native-image</artifactId>
-  <version>0.2.56</version>
+  <version>0.3.58</version>
   <name>native-image</name>
   <description>Run GraalVM native-image on Clojure projects</description>
   <url>https://github.com/lambdaisland/clj.native-image</url>
@@ -25,7 +25,7 @@
     <url>https://github.com/lambdaisland/clj.native-image</url>
     <connection>scm:git:git://github.com/lambdaisland/clj.native-image.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/lambdaisland/clj.native-image.git</developerConnection>
-    <tag>b5740daea44388749902a2a873cb35e5f3b76d55</tag>
+    <tag>e9154f96ba5b079dc1cbe5223d42fa03a5ec9a4c</tag>
   </scm>
   <dependencies>
     <dependency>
@@ -81,7 +81,7 @@
         <configuration>
           <archive>
             <manifestEntries>
-              <git-revision>b5740daea44388749902a2a873cb35e5f3b76d55</git-revision>
+              <git-revision>e9154f96ba5b079dc1cbe5223d42fa03a5ec9a4c</git-revision>
             </manifestEntries>
           </archive>
         </configuration>
